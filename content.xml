@@ -4,7 +4,7 @@
 <userPreferences>
   <userPreference>
     <key>theme</key>
-    <value>educablue</value>
+    <value>nova</value>
   </userPreference>
 </userPreferences>
 <odeResources>
@@ -28,7 +28,7 @@
   </odeProperty>
   <odeProperty>
     <key>pp_subtitle</key>
-    <value>Para cursos autodirigidos</value>
+    <value>Los productos, sus características y rúbricas para evaluarlos, deben estar alineados con el Syllabus del curso, las guías de aprendizaje y agenda del curso. </value>
   </odeProperty>
   <odeProperty>
     <key>pp_author</key>
@@ -48,7 +48,7 @@
   </odeProperty>
   <odeProperty>
     <key>pp_theme</key>
-    <value>educablue</value>
+    <value>nova</value>
   </odeProperty>
   <odeProperty>
     <key>pp_exelearning_version</key>
@@ -56,7 +56,7 @@
   </odeProperty>
   <odeProperty>
     <key>pp_modified</key>
-    <value>1792375832166</value>
+    <value>1792382542611</value>
   </odeProperty>
   <odeProperty>
     <key>pp_addExeLink</key>

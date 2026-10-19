@@ -1,135 +1,149 @@
-/*!
- * eXeLearning v4+ Style Script File
- * -----------------------
- * Author: Eduardo Gros and Ignacio Gros for EducaMadrid
- * Project: www.educa.madrid.org
- *
- * This JavaScript file is part of a style for eXeLearning.
- * Licensed under Creative Commons Attribution-ShareAlike (CC BY-SA).
- *
- * Note: The style's config.xml contains additional information
- *       about materials (images, fonts, etc.) created by third parties
- *       and included in this style.
- */
+// Pre-paint FOUC guard: this script is loaded in <head> synchronously, so it
+// runs before <body> parses. We can't touch document.body yet, but we can put
+// the class on <html>; CSS uses `.siteNav-off` (ancestor) so #siteNav, main,
+// togglers etc. are styled before they ever paint expanded. sessionStorage is
+// canonical; ?nav=false is honored only on the very first visit.
+(function () {
+    try {
+        var s = sessionStorage.getItem('siteNav-off');
+        var off = s === '1' || (s === null && new URLSearchParams(window.location.search).get('nav') === 'false');
+        if (off) document.documentElement.classList.add('siteNav-off');
+    } catch (e) {}
+})();
 
 var myTheme = {
-    dropdownNavigation : true,
+    dropdownMenusWorking: false,
     init: function () {
         // Common functions
         if (this.inIframe()) $('body').addClass('in-iframe');
-        if (!$('body').hasClass('exe-web-site')) {
-            // Dark mode is website-only: undo the class setMode() applied at parse time
-            $('html').removeClass('exe-dark-mode');
-            return;
-        }
-        var togglers = '';
-        if (this.isLocalStorageAvailable()) {
-        togglers =
-            '\
-            <button type="button" id="darkModeToggler" class="toggler" title="' +
-            $exe_i18n.mode_toggler +
-            '">\
-                <span>' +
-            $exe_i18n.mode_toggler +
-            '</span>\
-            </button>\
-        ';
-        }
+        if (!$('body').hasClass('exe-web-site')) return;
         // Add menu and search bar togglers
-        togglers +=
+        var togglers =
             '\
             <button type="button" id="siteNavToggler" class="toggler" aria-expanded="true" aria-controls="siteNav" title="' +
             $exe_i18n.menu +
             '">\
-                <span>' +
+                <span class="sr-av">' +
             $exe_i18n.menu +
             '</span>\
             </button>\
         ';
+        // The search box is optional: only add its toggler when it exists
+        if ($('#exe-client-search').length) {
+            togglers +=
+                '\
+                <button type="button" id="searchBarToggler" class="toggler" aria-expanded="false" aria-controls="exe-client-search" title="' +
+                $exe_i18n.search +
+                '">\
+                    <span class="sr-av">' +
+                $exe_i18n.search +
+                '</span>\
+                </button>\
+            ';
+        }
         $('#siteNav').before(togglers);
-        // Check the current NAV status
-        if (new URLSearchParams(window.location.search).get('nav') === 'false') {
+        // The pre-paint guard above set .siteNav-off on <html>; mirror it onto
+        // <body> for jQuery checks and selectors that target body specifically.
+        // Then sync nav-button URLs and persist so sessionStorage is canonical.
+        var off = document.documentElement.classList.contains('siteNav-off');
+        if (off) {
             $('body').addClass('siteNav-off');
-            myTheme.navExpanded(false);
             myTheme.params('add');
         }
-        // Dark mode
-        this.darkMode.init();
+        myTheme.persistNavState(off);
+        myTheme.navExpanded(!off);
         // Menu toggler
         $('#siteNavToggler').on('click', function () {
             if (myTheme.isLowRes()) {
                 $('#exe-client-search').hide();
+                $('#searchBarToggler').attr('aria-expanded', 'false');
                 if ($('body').hasClass('siteNav-off')) {
-                    $('body').removeClass('siteNav-off');
-                } else {
-                    if ($('#siteNav').isInViewport()) {
-                        $('body').addClass('siteNav-off');
-                        myTheme.params('add');
-                    }
+                    myTheme.setNavOff(false);
+                } else if ($('#siteNav').isInViewport()) {
+                    myTheme.setNavOff(true);
+                    myTheme.params('add');
                 }
-                window.scroll(0, 0);
-            } else {
-                $('body').toggleClass('siteNav-off');
-                myTheme.params(
-                    $('body').hasClass('siteNav-off') ? 'add' : 'remove'
-                );
+                return;
             }
-            myTheme.navExpanded(!$('body').hasClass('siteNav-off'));
-        });  
-        // Allways close the menu in low resolution
-        $("#siteNav a").on('click', function(event){
-            if (event.target.nodeName == 'A') {
-                if (myTheme.isLowRes()) {
-                    event.preventDefault();
-                    window.location = $exeExport.setUrlParam(this.href, 'nav', 'false');
-                }
+            var off = !$('body').hasClass('siteNav-off');
+            myTheme.setNavOff(off);
+            myTheme.params(off ? 'add' : 'remove');
+        });
+        // Search bar toggler — preserve sidebar state
+        $('#searchBarToggler').on('click', function () {
+            var bar = $('#exe-client-search');
+            if (bar.is(':visible')) {
+                bar.hide();
+                $(this).attr('aria-expanded', 'false');
+                return;
             }
-        });      
-        // Enable dropdowns in the main navigation menu
-        this.dropdownMenus();
+            bar.show();
+            $(this).attr('aria-expanded', 'true');
+            $('#exe-client-search-text').focus();
+        });
+        // Fixed navigation
+        $('#siteNav').wrap('<div id="sidebar-nav"></div>');
+        myTheme.checkNav();
+        $(window).bind('resize', function () {
+            myTheme.checkNav();
+        });
         // Search form
         this.searchForm();
+
+        // mover .page-title dentro de .page-content
+        this.movePageTitle();
+
+        // Collapsible submenus
+        this.dropdownMenus();
     },
-    isLocalStorageAvailable : function(){
-        var x = '';
+    setNavOff: function (off) {
+        document.documentElement.classList.toggle('siteNav-off', off);
+        $('body').toggleClass('siteNav-off', off);
+        myTheme.persistNavState(off);
+        myTheme.navExpanded(!off);
+    },
+    persistNavState: function (off) {
         try {
-            localStorage.setItem(x, x);
-            localStorage.removeItem(x);
-            return true;
-        } catch(e) {
-            return false;
-        }
+            sessionStorage.setItem('siteNav-off', off ? '1' : '0');
+        } catch (e) {}
     },
-    darkMode : {
-        init : function(){
-            $("#darkModeToggler").on("click",function(){
-                var active = 'off';
-                if (!$("html").hasClass("exe-dark-mode")) active = 'on';
-                myTheme.darkMode.setMode(active);
-            });
-        },
-        setMode : function(active){
-            if (!myTheme.isLocalStorageAvailable()) return;
-            var dark = false;
-            var darkMode = localStorage.getItem('exeDarkMode');
-            if (darkMode && darkMode == 'on') {
-                dark = true;
-            }
-            if (active) {
-                if (active == 'off') {
-                    dark = false;
+    dropdownMenus: function () {
+        $('#siteNav ul ul').each(function (i) {
+            var elem = $(this);
+            this.id = 'child-section-' + i;
+            var lnk = elem.prev('a');
+            var css = elem.is(':visible') ? 'open-ul' : 'closed-ul';
+            lnk.append(
+                '<button type="button" id="child-section-' +
+                    i +
+                    '-toggler" title="' +
+                    $exe_i18n.more +
+                    '" class="' +
+                    css +
+                    '"><span class="sr-av">' +
+                    $exe_i18n.more +
+                    '</span></button>'
+            );
+            $('#child-section-' + i + '-toggler').on('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                if (myTheme.dropdownMenusWorking) return;
+                myTheme.dropdownMenusWorking = true;
+                var btn = $(this);
+                var ul = $('#' + this.id.replace('-toggler', ''));
+                if (ul.is(':visible')) {
+                    ul.slideUp('fast', function () {
+                        btn.removeClass('open-ul').addClass('closed-ul');
+                        myTheme.dropdownMenusWorking = false;
+                    });
                 } else {
-                    dark = true;
+                    ul.slideDown('fast', function () {
+                        btn.removeClass('closed-ul').addClass('open-ul');
+                        myTheme.dropdownMenusWorking = false;
+                    });
                 }
-            }
-            if (dark) {
-                localStorage.setItem('exeDarkMode', 'on');
-                $("html").addClass("exe-dark-mode");
-            } else {
-                localStorage.removeItem('exeDarkMode');
-                $("html").removeClass("exe-dark-mode");
-            }
-        }
+            });
+        });
     },
     inIframe: function () {
         try {
@@ -142,46 +156,14 @@ var myTheme = {
         $('#exe-client-search-text').attr('class', 'form-control');
     },
     isLowRes: function () {
-        return window.matchMedia('(max-width: 575.98px)').matches;
+        return $('#siteNav').css('float') == 'none';
     },
-    dropdownMenus: function(){
-        if (!this.dropdownNavigation) return;
-        this.dropdownMenusWorking = false;
-        $("#siteNav ul ul").each(function(i){
-            var elem = $(this);
-            this.id = "child-section-"+i;
-            var lnk = elem.prev("a");
-            var css = 'closed-ul';
-            if (elem.is(":visible")) css = 'open-ul';
-            lnk.after('<button id="child-section-'+i+'-toggler" title="'+$exe_i18n.more+'" class="'+css+'" aria-controls="child-section-'+i+'" aria-expanded="'+(css == 'open-ul')+'"><span>'+$exe_i18n.more+'</span></button>');
-            $("#child-section-"+i+"-toggler").on("click", function(event){
-                event.preventDefault();
-                if (myTheme.dropdownMenusWorking == true) return;
-                myTheme.dropdownMenusWorking = true;
-                var id = this.id;
-                    id = id.replace("-toggler", "");
-                var ul = $("#"+id);
-                if (ul.is(":visible")) {
-                    ul.slideUp("fast", function(){
-                        var lnk = $("#"+this.id+"-toggler");
-                            lnk.removeClass("open-ul");
-                            lnk.addClass("closed-ul");
-                            lnk.attr("aria-expanded", "false");
-                        // $(this).removeClass("other-section-visible");
-                        myTheme.dropdownMenusWorking = false;
-                    });
-                } else {
-                    ul.slideDown("fast", function(){
-                        var lnk = $("#"+this.id+"-toggler");
-                            lnk.removeClass("closed-ul");
-                            lnk.addClass("open-ul");
-                            lnk.attr("aria-expanded", "true");
-                        // $(this).addClass("other-section-visible");
-                        myTheme.dropdownMenusWorking = false;
-                    });
-                }
-            });
-        });
+    checkNav: function () {
+        var wrapper = $('#sidebar-nav');
+        var navH = $('#siteNav > ul').height(); // Menu height
+        navH = navH + 50;
+        if (navH < $(window).height()) wrapper.addClass('fixed');
+        else wrapper.removeClass('fixed');
     },
     navExpanded: function (visible) {
         $('#siteNavToggler').attr('aria-expanded', visible ? 'true' : 'false');
@@ -197,11 +179,43 @@ var myTheme = {
             );
         });
     },
+
+    // function that move the h2 outside the header
+    movePageTitle: function () {
+        const tryMove = () => {
+            const $header = $('.main-header .page-header');
+            const $title = $header.find('.page-title').first();
+
+            // Search container of content
+            let $content = $('.page-content').first();
+            if (!$content.length)
+                $content = $('.content, main .content').first();
+            if (!$content.length) $content = $('#main, #content').first();
+            if (!$content.length && $header.length)
+                $content = $header.nextAll(':not(header)').first();
+            if (!$content.length && $header.length) $content = $header.parent();
+
+            if ($header.length && $title.length && $content.length) {
+                $content.prepend($title); // move it to the start
+                return true;
+            }
+            return false;
+        };
+
+        if (tryMove()) return;
+
+        const observer = new MutationObserver(() => {
+            if (tryMove()) observer.disconnect();
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+    },
+    // 🔼
 };
+
 $(function () {
     myTheme.init();
 });
-myTheme.darkMode.setMode();
+
 $.fn.isInViewport = function () {
     var elementTop = $(this).offset().top;
     var elementBottom = elementTop + $(this).outerHeight();
@@ -209,4 +223,3 @@ $.fn.isInViewport = function () {
     var viewportBottom = viewportTop + $(window).height();
     return elementBottom > viewportTop && elementTop < viewportBottom;
 };
-
