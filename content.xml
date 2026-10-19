@@ -4,7 +4,7 @@
 <userPreferences>
   <userPreference>
     <key>theme</key>
-    <value>nova</value>
+    <value>educablue</value>
   </userPreference>
 </userPreferences>
 <odeResources>
@@ -48,7 +48,7 @@
   </odeProperty>
   <odeProperty>
     <key>pp_theme</key>
-    <value>nova</value>
+    <value>educablue</value>
   </odeProperty>
   <odeProperty>
     <key>pp_exelearning_version</key>
@@ -56,7 +56,7 @@
   </odeProperty>
   <odeProperty>
     <key>pp_modified</key>
-    <value>1792382542611</value>
+    <value>1792382821918</value>
   </odeProperty>
   <odeProperty>
     <key>pp_addExeLink</key>
